@@ -1,0 +1,6 @@
+# Mesh
+/mesh
+*.pla
+
+# SOLIDWORKS
+~$*
