@@ -3,9 +3,7 @@ use std::time::{Duration, SystemTime};
 
 use chrono::{DateTime, Timelike, Utc};
 use chrono_tz::{Asia::Taipei, Tz};
-use embedded_graphics::{draw_target::DrawTarget, prelude::Point};
 use epd_waveshare::{
-    color::Color::{Black as White, White as Black},
     epd7in5_v2::{Epd7in5, HEIGHT, WIDTH},
     graphics::VarDisplay,
     prelude::*,
@@ -26,24 +24,7 @@ use esp_idf_svc::{
         ScanMethod, ScanSortMethod,
     },
 };
-use u8g2_fonts::{
-    types::{FontColor, HorizontalAlignment, VerticalPosition},
-    FontRenderer,
-};
-
-mod font;
-
-pub fn draw_text(display: &mut VarDisplay<Color>, text: &str, font: FontRenderer, x: i32, y: i32) {
-    font.render_aligned(
-        text,
-        Point::new(x, y),
-        VerticalPosition::Top,
-        HorizontalAlignment::Left,
-        FontColor::Transparent(Black),
-        display,
-    )
-    .unwrap();
-}
+use gui::page::main_page::MainPage;
 
 fn enter_deep_sleep(sleep_time: Duration) {
     log::info!("entering deep sleep");
@@ -120,18 +101,16 @@ fn main() -> anyhow::Result<()> {
 
     log::info!("epd setup completed");
 
+    // let mut gray_display: FakeDisplay<BinaryColor> = FakeDisplay::new(Size::new(WIDTH, HEIGHT));
+
     const BUFFER_SIZE: usize = epd_waveshare::buffer_len(WIDTH as usize, HEIGHT as usize);
+
+    log::info!("buffer size: {}", BUFFER_SIZE);
 
     let mut buffer = vec![0u8; BUFFER_SIZE];
 
     let mut display = VarDisplay::<Color>::new(WIDTH, HEIGHT, &mut buffer, false)
         .expect("failed to create display");
-
-    // let mut display = Display7in5::default();
-    // let mut display = Display5in83::default();
-
-    let font_inter_bold_48 = FontRenderer::new::<font::inter_bold_48_48>();
-    let font_inter_bold_64 = FontRenderer::new::<font::inter_bold_64_64>();
 
     if wakeup_reason != WakeupReason::Timer {
         let mut wifi = BlockingWifi::wrap(
@@ -179,33 +158,36 @@ fn main() -> anyhow::Result<()> {
         wifi.stop()?;
     }
 
+    // Create a new main page
+    let mut main_page = MainPage::new();
+
+    // Get the current time
     let now = get_time();
+    // let time = format!("{}", now.format("%_I:%M"));
+    // let meridiem = format!("{}", now.format("%p"));
+    let weekday = format!("{}", now.format("%A"));
 
-    let time = format!("{}", now.format("%H:%M"));
-    let meridiem = format!("{}", now.format("%p"));
+    // Set weekday
+    main_page.set_weekday(weekday);
 
-    display.clear(White)?;
-    log::info!("Display clear complete");
+    // Render the main page
+    main_page.draw(&mut display)?;
 
-    draw_text(&mut display, time.as_str(), font_inter_bold_64, 35, 28);
-    draw_text(&mut display, meridiem.as_str(), font_inter_bold_48, 217, 40);
-    log::info!("Draw text complete");
-
+    // Update and display the frame
     epd_driver
         .update_and_display_frame(&mut driver, display.buffer(), &mut delay)
         .expect("display frame");
     log::info!("Update and display frame complete");
 
+    // Wait 5 seconds for the display to update
     Delay::new_default().delay_ms(5000);
     pwr.set_low()?;
     log::info!("All complete");
 
+    // Enter deep sleep for 5 minutes
     let now = get_time();
-
     enter_deep_sleep(Duration::from_mins(5) - Duration::from_secs(now.second() as u64));
 
-    loop {
-        log::info!(".");
-        Delay::new_default().delay_ms(5000);
-    }
+    // If we reach this point, deep sleep failed
+    anyhow::bail!("Deep sleep failed");
 }

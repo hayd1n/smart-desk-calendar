@@ -1,0 +1,20 @@
+[package]
+name = "gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+epd-waveshare = { git = "https://github.com/caemor/epd-waveshare", features = [
+    "graphics",
+] }
+embedded-graphics = "0.8.1"
+u8g2-fonts = "0.4.0"
+thiserror = "1.0.63"
+
+[dev-dependencies]
+anyhow = "1.0.86"
+embedded-graphics-simulator = "0.6.0"
+chrono = { version = "0.4.38", default-features = false, features = [
+    "std",
+    "clock",
+] }
