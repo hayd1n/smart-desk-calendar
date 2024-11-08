@@ -39,11 +39,13 @@ where
     let year = date.year();
     let month = date.month();
 
-    // 找到当月的第一天
+    let today_weekday_num = date.weekday().num_days_from_sunday();
+
+    // Find the first day of the month
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let last_day = last_day_of_month(year, month);
 
-    // 获取第一天是周几
+    // Get the day of the week that the first day is
     let start_weekday = first_day.weekday();
     let start_weekday_num = start_weekday.num_days_from_sunday();
 
@@ -106,7 +108,7 @@ where
 
         // Draw the weekdays
         for (i, weekday_text) in weekdays_text.iter().enumerate() {
-            if i == start_weekday_num.try_into().unwrap() {
+            if i == (today_weekday_num as usize) {
                 weekday_text.draw(display, Black)?;
             } else {
                 weekday_text.draw_gray(display, GRAY_LUMA)?;
@@ -114,9 +116,10 @@ where
         }
     }
 
+    // Draw the days of the month
     {
         let mut pos: i32 = start_weekday_num.try_into().unwrap();
-        // 遍历当月的每一天
+        // Traverse each day of the month
         let mut day = first_day;
         while day <= last_day {
             let row = pos / 7;
@@ -153,7 +156,7 @@ where
                 text.draw_gray(display, GRAY_LUMA)?;
             }
 
-            // 移动到下一个日期
+            // Move to next date
             day = day.succ_opt().unwrap();
             pos += 1;
         }

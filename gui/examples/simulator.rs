@@ -22,7 +22,7 @@ fn main() -> anyhow::Result<()> {
         .build();
     let mut window = Window::new("Simulator", &output_settings);
 
-    let mut main_page = MainPage::new(Local::now().naive_local().date());
+    let mut main_page = MainPage::new(Local::now().naive_local());
 
     'running: loop {
         let now = Local::now().naive_local();

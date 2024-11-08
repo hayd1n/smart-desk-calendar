@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::NaiveDateTime;
 use embedded_graphics::prelude::DrawTarget;
 use epd_waveshare::color::Color::{self};
 use std::fmt::Debug;
@@ -10,11 +10,11 @@ use crate::{
 
 pub struct MainPage {
     pub weekday: String,
-    pub now: NaiveDate,
+    pub now: NaiveDateTime,
 }
 
 impl MainPage {
-    pub fn new(now: NaiveDate) -> Self {
+    pub fn new(now: NaiveDateTime) -> Self {
         Self {
             now,
             weekday: String::new(),
@@ -30,6 +30,8 @@ impl MainPage {
         Display: DrawTarget<Color = Color>,
         Display::Error: Debug,
     {
+        let date = self.now.date();
+
         // Clear the display
         clear(display)?;
 
@@ -37,10 +39,10 @@ impl MainPage {
         draw_weekday(display, &self.weekday, 35, 40)?;
 
         // Draw the date component
-        draw_date(display, 766, 40, self.now)?;
+        draw_date(display, 766, 40, date)?;
 
         // Draw the calendar component
-        draw_calendar(display, 35, 121, self.now)?;
+        draw_calendar(display, 35, 121, date)?;
 
         let activities = vec![
             Activity::new("Culture Exchange Activity", 0),
