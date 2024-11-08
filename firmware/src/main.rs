@@ -1,7 +1,7 @@
 #![feature(duration_constructors)]
 use std::time::{Duration, SystemTime};
 
-use chrono::{DateTime, Timelike, Utc};
+use chrono::{DateTime, NaiveDateTime, Timelike, Utc};
 use chrono_tz::{Asia::Taipei, Tz};
 use epd_waveshare::{
     epd7in5_v2::{Epd7in5, HEIGHT, WIDTH},
@@ -26,6 +26,10 @@ use esp_idf_svc::{
 };
 use gui::page::main_page::MainPage;
 
+const WIFI_SSID: &'static str = env!("WIFI_SSID");
+const WIFI_PASSWORD: &'static str = env!("WIFI_PASSWORD");
+const TIMEZONE: Tz = Taipei;
+
 fn enter_deep_sleep(sleep_time: Duration) {
     log::info!("entering deep sleep");
     unsafe {
@@ -33,18 +37,15 @@ fn enter_deep_sleep(sleep_time: Duration) {
     }
 }
 
-fn get_time() -> DateTime<Tz> {
+fn get_time(timezone: Tz) -> NaiveDateTime {
     // Obtain System Time
     let st_now = SystemTime::now();
     // Convert to UTC Time
     let dt_now_utc: DateTime<Utc> = st_now.clone().into();
-    dt_now_utc.with_timezone(&Taipei)
+    dt_now_utc.with_timezone(&timezone).naive_local()
 }
 
 fn main() -> anyhow::Result<()> {
-    const WIFI_SSID: &'static str = env!("WIFI_SSID");
-    const WIFI_PASSWORD: &'static str = env!("WIFI_PASSWORD");
-
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_svc::sys::link_patches();
@@ -158,14 +159,14 @@ fn main() -> anyhow::Result<()> {
         wifi.stop()?;
     }
 
-    // Create a new main page
-    let mut main_page = MainPage::new();
-
     // Get the current time
-    let now = get_time();
+    let now = get_time(TIMEZONE);
     // let time = format!("{}", now.format("%_I:%M"));
     // let meridiem = format!("{}", now.format("%p"));
     let weekday = format!("{}", now.format("%A"));
+
+    // Create a new main page
+    let mut main_page = MainPage::new(now);
 
     // Set weekday
     main_page.set_weekday(weekday);
@@ -185,7 +186,7 @@ fn main() -> anyhow::Result<()> {
     log::info!("All complete");
 
     // Enter deep sleep for 5 minutes
-    let now = get_time();
+    let now = get_time(TIMEZONE);
     enter_deep_sleep(Duration::from_mins(5) - Duration::from_secs(now.second() as u64));
 
     // If we reach this point, deep sleep failed
