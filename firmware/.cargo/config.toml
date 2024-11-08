@@ -16,6 +16,9 @@ build-std = ["std", "panic_abort"]
 MCU = "esp32"
 # Note: this variable is not used by the pio builder (`cargo build --features pio`)
 ESP_IDF_VERSION = "v5.2.2"
+# Warning: Set WiFi credentials in `.env` to override them
+WIFI_SSID = ""
+WIFI_PASSWORD = ""
 
-# Workaround for https://github.com/esp-rs/esp-idf-template/issues/174 
+# Workaround for https://github.com/esp-rs/esp-idf-template/issues/174
 CRATE_CC_NO_DEFAULTS = "1"

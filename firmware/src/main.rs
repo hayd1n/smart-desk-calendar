@@ -66,6 +66,11 @@ fn main() -> anyhow::Result<()> {
     let nvs = EspDefaultNvsPartition::take()?;
     let pins = peripherals.pins;
 
+    // Setup LED
+    let mut led = PinDriver::output(pins.gpio2)?;
+    // Turn on LED to indicate boot
+    led.set_high()?;
+
     let spi_p = peripherals.spi3;
     let sclk = pins.gpio13;
     let sdo = pins.gpio14;
@@ -184,6 +189,9 @@ fn main() -> anyhow::Result<()> {
     Delay::new_default().delay_ms(5000);
     pwr.set_low()?;
     log::info!("All complete");
+
+    // Turn off LED to indicate shutdown
+    led.set_low()?;
 
     // Enter deep sleep for 5 minutes
     let now = get_time(TIMEZONE);
