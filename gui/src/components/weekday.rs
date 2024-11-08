@@ -3,10 +3,7 @@ use epd_waveshare::color::Color;
 use std::fmt::Debug;
 use u8g2_fonts::FontRenderer;
 
-use crate::{
-    draw::{draw_text, DrawError},
-    font,
-};
+use crate::{draw::DrawError, font, text::Text, Black};
 
 pub fn draw_weekday<Display>(
     display: &mut Display,
@@ -20,7 +17,7 @@ where
 {
     let font = FontRenderer::new::<font::inter_bold_48_48>();
 
-    draw_text(display, weekday, font, x, y)?;
+    Text::new(weekday, &font).x(x).y(y).draw(display, Black)?;
 
     Ok(())
 }

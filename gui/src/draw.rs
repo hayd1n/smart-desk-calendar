@@ -1,16 +1,12 @@
 use embedded_graphics::{
     pixelcolor::Gray8,
-    prelude::{DrawTarget, IntoStorage, Point, Size},
-    primitives::Rectangle,
+    prelude::{DrawTarget, IntoStorage, Point},
     Drawable, Pixel,
 };
+#[allow(unused_imports)]
 use epd_waveshare::color::Color::{self, Black as White, White as Black};
 use std::fmt::Debug;
 use thiserror::Error;
-use u8g2_fonts::{
-    types::{FontColor, HorizontalAlignment, VerticalPosition},
-    FontRenderer,
-};
 
 use crate::display::FakeDisplay;
 
@@ -70,96 +66,6 @@ where
     display
         .clear(White)
         .map_err(|_| DrawError::DrawFailed("Failed to clear display".to_string()))
-}
-
-pub fn draw_text<Display>(
-    display: &mut Display,
-    text: &str,
-    font: FontRenderer,
-    x: i32,
-    y: i32,
-) -> Result<Rectangle, DrawError>
-where
-    Display: DrawTarget<Color = Color>,
-    Display::Error: Debug,
-{
-    let position = Point::new(x, y);
-    let vertical_pos = VerticalPosition::Top;
-    let horizontal_align = HorizontalAlignment::Left;
-
-    // Get the bounding box of the text to determine the width and height
-    let bounding_box = font
-        .get_rendered_dimensions_aligned(text, position, vertical_pos, horizontal_align)
-        .map_err(|err| DrawError::DrawFailed(format!("{:?}", err)))?
-        .unwrap();
-
-    // Render the text on the temporary display
-    font.render_aligned(
-        text,
-        position,
-        vertical_pos,
-        horizontal_align,
-        FontColor::Transparent(Black),
-        display,
-    )
-    .map_err(|err| DrawError::DrawFailed(format!("{:?}", err)))?;
-
-    Ok(bounding_box)
-}
-
-pub fn draw_text_gray<Display>(
-    display: &mut Display,
-    text: &str,
-    font: FontRenderer,
-    luma: u8,
-    x: i32,
-    y: i32,
-) -> Result<Rectangle, DrawError>
-where
-    Display: DrawTarget<Color = Color>,
-    Display::Error: Debug,
-{
-    let position = Point::new(0, 0);
-    let vertical_pos = VerticalPosition::Top;
-    let horizontal_align = HorizontalAlignment::Left;
-
-    // Get the bounding box of the text to determine the width and height
-    let bounding_box = font
-        .get_rendered_dimensions_aligned(text, position, vertical_pos, horizontal_align)
-        .map_err(|err| DrawError::DrawFailed(format!("{:?}", err)))?
-        .unwrap();
-
-    let top_left = bounding_box.top_left;
-
-    // Calculate the real width and height of the text
-    let real_width = (bounding_box.size.width as i32 + top_left.x) as u32;
-    let real_height = (bounding_box.size.height as i32 + top_left.y) as u32;
-
-    // Create a temporary display to render the text
-    let mut gray_display: FakeDisplay<Gray8> = FakeDisplay::new(Size::new(real_width, real_height));
-
-    // Render the text on the temporary display
-    font.render_aligned(
-        text,
-        position,
-        vertical_pos,
-        horizontal_align,
-        FontColor::Transparent(Gray8::new(luma)),
-        &mut gray_display,
-    )
-    .map_err(|err| DrawError::DrawFailed(format!("{:?}", err)))?;
-
-    // Convert the temporary display to a binary display using Floyd-Steinberg dithering
-    floyd_steinberg_dither(
-        &mut gray_display,
-        display,
-        x + top_left.x,
-        y + top_left.y,
-        real_width,
-        real_height,
-    );
-
-    Ok(bounding_box)
 }
 
 #[derive(Debug, Error)]

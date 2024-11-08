@@ -10,11 +10,13 @@ epd-waveshare = { git = "https://github.com/caemor/epd-waveshare", features = [
 embedded-graphics = "0.8.1"
 u8g2-fonts = "0.4.0"
 thiserror = "1.0.63"
-
-[dev-dependencies]
-anyhow = "1.0.86"
-embedded-graphics-simulator = "0.6.0"
 chrono = { version = "0.4.38", default-features = false, features = [
     "std",
     "clock",
 ] }
+num-traits = "0.2.19"
+
+[dev-dependencies]
+anyhow = "1.0.86"
+embedded-graphics-simulator = "0.6.0"
+chrono-tz = "0.9.0"
