@@ -1,8 +1,10 @@
 #![feature(duration_constructors)]
-use std::time::{Duration, SystemTime};
-
-use chrono::{DateTime, NaiveDateTime, Timelike, Utc};
+#![feature(int_roundings)]
+use calendar::IcsDownloader;
+use chrono::{DateTime, Datelike, NaiveTime, Timelike, Utc};
 use chrono_tz::{Asia::Taipei, Tz};
+use common::get_last_day_of_month;
+use core::str;
 use epd_waveshare::{
     epd7in5_v2::{Epd7in5, HEIGHT, WIDTH},
     graphics::VarDisplay,
@@ -14,17 +16,23 @@ use esp_idf_svc::{
         delay::{self, Delay},
         gpio::{self, PinDriver},
         prelude::*,
-        reset::{self, WakeupReason},
+        reset::{self},
         spi,
     },
     nvs::EspDefaultNvsPartition,
     sntp::{EspSntp, SyncStatus},
     wifi::{
         AuthMethod, BlockingWifi, ClientConfiguration, Configuration, EspWifi, PmfConfiguration,
-        ScanMethod, ScanSortMethod,
+        ScanMethod,
     },
 };
-use gui::page::main_page::MainPage;
+use gui::{components::activity::Activity, page::main_page::MainPage};
+use http::create_https_client;
+use std::time::{Duration, SystemTime};
+
+pub mod calendar;
+pub mod common;
+pub mod http;
 
 const WIFI_SSID: &'static str = env!("WIFI_SSID");
 const WIFI_PASSWORD: &'static str = env!("WIFI_PASSWORD");
@@ -37,12 +45,11 @@ fn enter_deep_sleep(sleep_time: Duration) {
     }
 }
 
-fn get_time(timezone: Tz) -> NaiveDateTime {
+fn get_time() -> DateTime<Utc> {
     // Obtain System Time
     let st_now = SystemTime::now();
     // Convert to UTC Time
-    let dt_now_utc: DateTime<Utc> = st_now.clone().into();
-    dt_now_utc.with_timezone(&timezone).naive_local()
+    st_now.into()
 }
 
 fn main() -> anyhow::Result<()> {
@@ -80,6 +87,8 @@ fn main() -> anyhow::Result<()> {
     let dc = pins.gpio27;
 
     let mut pwr = PinDriver::output(pins.gpio23)?;
+
+    // Turn on E-Ink display
     pwr.set_high()?;
 
     let mut driver = spi::SpiDeviceDriver::new_single(
@@ -118,60 +127,110 @@ fn main() -> anyhow::Result<()> {
     let mut display = VarDisplay::<Color>::new(WIDTH, HEIGHT, &mut buffer, false)
         .expect("failed to create display");
 
-    if wakeup_reason != WakeupReason::Timer {
-        let mut wifi = BlockingWifi::wrap(
-            EspWifi::new(peripherals.modem, sysloop.clone(), Some(nvs))?,
-            sysloop,
-        )?;
+    let mut wifi = BlockingWifi::wrap(
+        EspWifi::new(peripherals.modem, sysloop.clone(), Some(nvs))?,
+        sysloop,
+    )?;
 
-        wifi.set_configuration(&Configuration::Client(ClientConfiguration {
-            ssid: WIFI_SSID.try_into().unwrap(),
-            bssid: None,
-            auth_method: AuthMethod::WPA2Personal,
-            password: WIFI_PASSWORD.try_into().unwrap(),
-            channel: None,
-            scan_method: ScanMethod::CompleteScan(ScanSortMethod::Signal),
-            pmf_cfg: PmfConfiguration::default(),
-        }))?;
+    wifi.set_configuration(&Configuration::Client(ClientConfiguration {
+        ssid: WIFI_SSID.try_into().unwrap(),
+        bssid: None,
+        auth_method: AuthMethod::WPA2Personal,
+        password: WIFI_PASSWORD.try_into().unwrap(),
+        channel: None,
+        scan_method: ScanMethod::FastScan,
+        pmf_cfg: PmfConfiguration::default(),
+    }))?;
 
-        // Start Wifi
-        wifi.start()?;
+    // Start Wifi
+    wifi.start()?;
 
-        // Connect Wifi
-        wifi.connect()?;
+    // Connect Wifi
+    wifi.connect()?;
 
-        // Wait until the network interface is up
-        wifi.wait_netif_up()?;
+    // Wait until the network interface is up
+    wifi.wait_netif_up()?;
 
-        // Print Out Wifi Connection Configuration
-        while !wifi.is_connected().unwrap() {
-            // Get and print connection configuration
-            let config = wifi.get_configuration().unwrap();
-            println!("Waiting for station {:?}", config);
-        }
-
-        log::info!("Wifi Connected");
-
-        // Create Handle and Configure SNTP
-        let ntp = EspSntp::new_default().unwrap();
-
-        // Synchronize NTP
-        log::info!("Synchronizing with NTP Server");
-        while ntp.get_sync_status() != SyncStatus::Completed {}
-        log::info!("Time Sync Completed");
-
-        wifi.disconnect()?;
-        wifi.stop()?;
+    // Print Out Wifi Connection Configuration
+    while !wifi.is_connected().unwrap() {
+        // Get and print connection configuration
+        let config = wifi.get_configuration().unwrap();
+        println!("Waiting for station {:?}", config);
     }
 
+    log::info!("Wifi Connected");
+
+    // Create Handle and Configure SNTP
+    let ntp = EspSntp::new_default().unwrap();
+
+    // Synchronize NTP
+    {
+        log::info!("Synchronizing with NTP Server");
+        // Wait until the time is synchronized
+        while ntp.get_sync_status() != SyncStatus::Completed {}
+        log::info!("Time Sync Completed");
+    }
+
+    // Create HTTPS Client
+    let mut http_client = create_https_client()?;
+
     // Get the current time
-    let now = get_time(TIMEZONE);
+    let now = get_time();
+    let today = now
+        .with_time(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+        .unwrap();
+
+    let month_last_day = get_last_day_of_month(today.year(), today.month())
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_utc();
+
+    let activities = {
+        let mut events = Vec::new();
+        for url in env!("ICS_URL").split(";") {
+            println!("Downloading ICS from: {}", url);
+            // Create ICS Downloader
+            let mut ics_downloader =
+                IcsDownloader::new(&mut http_client, url, today.into(), month_last_day.into());
+            events.extend(ics_downloader.download_and_parse_ics()?);
+        }
+        events.sort();
+        println!("Events: {:#?}", events);
+
+        // Create a list of activities
+        events
+            .iter()
+            .filter_map(|event| {
+                match TryInto::<i32>::try_into(
+                    event
+                        .start
+                        .with_time(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+                        .unwrap()
+                        .signed_duration_since(today)
+                        .num_days(),
+                ) {
+                    Ok(days_remaining) => Some(Activity::new(&event.summary, days_remaining)),
+                    Err(_) => None, // Skip if the remaining days are too large
+                }
+            })
+            .collect::<Vec<Activity>>()
+    };
+
+    // Disconnect Wifi
+    wifi.disconnect()?;
+    wifi.stop()?;
+
+    // Get the current time
+    let now_local = get_time().with_timezone(&TIMEZONE).naive_local();
     // let time = format!("{}", now.format("%_I:%M"));
     // let meridiem = format!("{}", now.format("%p"));
-    let weekday = format!("{}", now.format("%A"));
+    let weekday = format!("{}", now_local.format("%A"));
 
     // Create a new main page
-    let mut main_page = MainPage::new(now);
+    let mut main_page = MainPage::new(now_local);
+
+    // Set activities
+    main_page.set_activities(activities);
 
     // Set weekday
     main_page.set_weekday(weekday);
@@ -187,14 +246,17 @@ fn main() -> anyhow::Result<()> {
 
     // Wait 5 seconds for the display to update
     Delay::new_default().delay_ms(5000);
+
+    // Turn off E-Ink display
     pwr.set_low()?;
+
     log::info!("All complete");
 
     // Turn off LED to indicate shutdown
     led.set_low()?;
 
     // Enter deep sleep for 5 minutes
-    let now = get_time(TIMEZONE);
+    let now = get_time();
     enter_deep_sleep(Duration::from_mins(5) - Duration::from_secs(now.second() as u64));
 
     // If we reach this point, deep sleep failed
