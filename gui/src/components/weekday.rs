@@ -7,9 +7,9 @@ use crate::{draw::DrawError, font, text::Text, Black};
 
 pub fn draw_weekday<Display>(
     display: &mut Display,
-    weekday: &str,
     x: i32,
     y: i32,
+    weekday: &str,
 ) -> Result<(), DrawError>
 where
     Display: DrawTarget<Color = Color>,

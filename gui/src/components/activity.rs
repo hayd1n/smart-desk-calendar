@@ -3,7 +3,7 @@ use epd_waveshare::color::Color;
 use std::fmt::Debug;
 use u8g2_fonts::{types::HorizontalAlignment, FontRenderer};
 
-use crate::{common::truncate_string, draw::DrawError, font, text::Text, Black, GRAY_LUMA};
+use crate::{common::truncate_string_unicode, draw::DrawError, font, text::Text, Black, GRAY_LUMA};
 
 pub struct Activity {
     name: String,
@@ -43,7 +43,7 @@ where
     };
 
     let title_font = FontRenderer::new::<font::inter_bold_32_32>();
-    let content_font = FontRenderer::new::<font::inter_bold_16_16>();
+    let content_font = FontRenderer::new::<font::noto_sans_tc_semi_bold_16_16>();
 
     Text::new("Activity", &title_font)
         .x(x)
@@ -54,14 +54,18 @@ where
     for activity in activities {
         // Create the text object for the activity name
         let name_text = Text::new(
-            &truncate_string(&activity.name, ACTIVITY_MAX_NAME_LEN),
+            &truncate_string_unicode(&activity.name, ACTIVITY_MAX_NAME_LEN),
             &content_font,
         )
         .x(x)
         .y(activity_y);
 
         // Draw the activity name
-        name_text.draw_gray(display, GRAY_LUMA)?;
+        if activity.days_remaining == 0 {
+            name_text.draw(display, Black)?;
+        } else {
+            name_text.draw_gray(display, GRAY_LUMA)?;
+        }
 
         // If the activity is today, display "Today", otherwise display the number of days remaining
         let days_remaining_text = if activity.days_remaining == 0 {

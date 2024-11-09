@@ -15,6 +15,7 @@ chrono = { version = "0.4.38", default-features = false, features = [
     "clock",
 ] }
 num-traits = "0.2.19"
+unicode-width = "0.2.0"
 
 [dev-dependencies]
 anyhow = "1.0.86"
