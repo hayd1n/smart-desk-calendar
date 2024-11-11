@@ -144,7 +144,7 @@ impl ICSParser {
     }
 
     // 分析ICS片段內容，並處理跨段的未完成行
-    fn parse_ics_chunk(&mut self, chunk: &str) {
+    pub fn parse_ics_chunk(&mut self, chunk: &str) {
         self.leftover.push_str(chunk);
 
         // println!("Leftover: {:?}", self.leftover);
