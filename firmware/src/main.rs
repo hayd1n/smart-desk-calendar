@@ -1,5 +1,6 @@
 #![feature(duration_constructors)]
 #![feature(int_roundings)]
+use calendar::IcsDownloader;
 use chrono::{DateTime, Datelike, NaiveTime, Timelike, Utc};
 use chrono_tz::{Asia::Taipei, Tz};
 use common::get_last_day_of_month;
@@ -25,11 +26,12 @@ use esp_idf_svc::{
         ScanMethod,
     },
 };
-use firmware::calendar::IcsDownloader;
 use gui::{components::activity::Activity, page::main_page::MainPage};
 use http::create_https_client;
 use std::time::{Duration, SystemTime};
 
+pub mod app;
+pub mod calendar;
 pub mod common;
 pub mod http;
 
@@ -40,7 +42,7 @@ const TIMEZONE: Tz = Taipei;
 fn enter_deep_sleep(sleep_time: Duration) {
     log::info!("entering deep sleep");
     unsafe {
-        esp_idf_sys::esp_deep_sleep(sleep_time.as_micros() as u64);
+        esp_idf_svc::sys::esp_deep_sleep(sleep_time.as_micros() as u64);
     }
 }
 
