@@ -19,6 +19,7 @@ ESP_IDF_VERSION = "v5.2.2"
 # Warning: Set WiFi credentials in `.env` to override them
 WIFI_SSID = ""
 WIFI_PASSWORD = ""
+WIFI_AUTH_MODE = ""
 ICS_URL = ""
 
 # Workaround for https://github.com/esp-rs/esp-idf-template/issues/174

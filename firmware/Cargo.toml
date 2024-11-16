@@ -32,13 +32,14 @@ esp-idf-svc = { version = "0.49", features = [
 epd-waveshare = { git = "https://github.com/caemor/epd-waveshare", features = [
     "graphics",
 ] }
-anyhow = "1.0.86"
+anyhow = { version = "1.0.86", features = ["backtrace"] }
 embedded-graphics = "0.8.1"
 u8g2-fonts = "0.4.0"
 chrono-tz = "0.10.0"
 gui = { path = "../gui" }
 embedded-svc = "0.28.0"
 iso8601 = { version = "0.6.1", features = ["chrono"] }
+heapless = "0.8.0"
 
 [build-dependencies]
 embuild = "0.32.0"
