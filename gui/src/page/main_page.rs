@@ -2,16 +2,12 @@ use chrono::NaiveDateTime;
 use embedded_graphics::prelude::DrawTarget;
 use epd_waveshare::color::Color::{self};
 use std::fmt::Debug;
-use u8g2_fonts::{types::HorizontalAlignment, FontRenderer};
 
 use crate::{
     components::{
         activity::Activity, draw_activity, draw_calendar, draw_date, draw_small_clock, draw_weekday,
     },
     draw::{clear, DrawError},
-    font,
-    text::Text,
-    Black,
 };
 
 pub struct MainPage {
@@ -61,14 +57,6 @@ impl MainPage {
 
         // Draw the activity component
         draw_activity(display, 533, 121, &self.activities)?;
-
-        let tc_font = FontRenderer::new::<font::noto_sans_tc_semi_bold_16_16>()
-            .with_ignore_unknown_chars(true);
-        Text::new("光終究會灑在你身上，你也將會燦爛一場。", &tc_font)
-            .x(400)
-            .y(40)
-            .horizontal_align(HorizontalAlignment::Center)
-            .draw(display, Black)?;
 
         Ok(())
     }

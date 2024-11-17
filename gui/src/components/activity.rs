@@ -43,7 +43,15 @@ where
     };
 
     let title_font = FontRenderer::new::<font::inter_bold_32_32>();
-    let content_font = FontRenderer::new::<font::noto_sans_tc_semi_bold_16_16>();
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "chinese")] {
+            let content_font = FontRenderer::new::<font::noto_sans_tc_semi_bold_16_16>();
+        } else {
+            let content_font = FontRenderer::new::<font::inter_bold_16_16>();
+        }
+    }
+    let content_font = content_font.with_ignore_unknown_chars(true);
 
     Text::new("Activity", &title_font)
         .x(x)
