@@ -5,10 +5,16 @@ authors = ["Hayden Chang <m831718@gmail.com>"]
 edition = "2021"
 resolver = "2"
 rust-version = "1.77"
+default-run = "firmware"
 
 [[bin]]
 name = "firmware"
 harness = false   # do not use the built in cargo test harness -> resolve rust-analyzer errors
+
+[[bin]]
+name = "clear-nvs"
+path = "src/clear_nvs.rs"
+harness = false           # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
 [profile.release]
 opt-level = "s"

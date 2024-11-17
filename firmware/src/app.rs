@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     board::Board,
-    common::get_time,
+    common::{get_time, NVS_NAMESPACE},
     display::{create_display, Black},
 };
 
@@ -387,12 +387,8 @@ pub struct App {
 
 impl App {
     pub fn new(board: Board, sysloop: EspSystemEventLoop, nvs: EspDefaultNvsPartition) -> Self {
-        let nvs_namespace = "calendar";
-        let nvs_storage = match EspNvs::new(nvs.clone(), nvs_namespace, true) {
-            Ok(nvs) => {
-                log::info!("NVS namespace: {}", nvs_namespace);
-                nvs
-            }
+        let nvs_storage = match EspNvs::new(nvs.clone(), NVS_NAMESPACE, true) {
+            Ok(nvs) => nvs,
             Err(e) => panic!("Could't get namespace {:?}", e),
         };
 
