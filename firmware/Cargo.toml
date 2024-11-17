@@ -18,8 +18,9 @@ debug = true    # Symbols are nice and they don't increase the size on Flash
 opt-level = "z"
 
 [features]
-default = []
+default = ["chinese"]
 experimental = ["esp-idf-svc/experimental"]
+chinese = ["gui/chinese"]
 
 [dependencies]
 chrono = { version = "0.4.38", default-features = false, features = ["std"] }
@@ -35,11 +36,14 @@ epd-waveshare = { git = "https://github.com/caemor/epd-waveshare", features = [
 anyhow = { version = "1.0.86", features = ["backtrace"] }
 embedded-graphics = "0.8.1"
 u8g2-fonts = "0.4.0"
-chrono-tz = "0.10.0"
+chrono-tz = { version = "0.10.0", features = ["serde"] }
 gui = { path = "../gui" }
 embedded-svc = "0.28.0"
 iso8601 = { version = "0.6.1", features = ["chrono"] }
 heapless = "0.8.0"
+const-random = "0.1.18"
+serde = "1.0.215"
+serde_json = "1.0.133"
 
 [build-dependencies]
 embuild = "0.32.0"

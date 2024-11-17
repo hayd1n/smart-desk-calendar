@@ -27,6 +27,6 @@ fn main() {
 
     let board = Board::init(peripherals, sysloop.clone(), nvs.clone());
 
-    let mut app = App::new(board, sysloop, nvs);
+    let app = App::new(board, sysloop, nvs);
     app.run();
 }
