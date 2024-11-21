@@ -1,6 +1,12 @@
 # Mesh
 /mesh
 *.pla
+*.3mf
 
 # SOLIDWORKS
 ~$*
+
+# Export
+Export
+
+Thumbs.db
