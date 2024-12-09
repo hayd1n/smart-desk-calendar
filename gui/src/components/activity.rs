@@ -5,12 +5,12 @@ use u8g2_fonts::{types::HorizontalAlignment, FontRenderer};
 
 use crate::{common::truncate_string_unicode, draw::DrawError, font, text::Text, Black, GRAY_LUMA};
 
-pub struct Activity {
+pub struct DaysRemaining {
     name: String,
     days_remaining: i32,
 }
 
-impl Activity {
+impl DaysRemaining {
     pub fn new(name: &str, days_remaining: i32) -> Self {
         Self {
             name: name.to_string(),
@@ -23,7 +23,7 @@ pub fn draw_activity<Display>(
     display: &mut Display,
     x: i32,
     y: i32,
-    activities: &Vec<Activity>,
+    activities: &Vec<DaysRemaining>,
 ) -> Result<(), DrawError>
 where
     Display: DrawTarget<Color = Color>,
@@ -37,9 +37,9 @@ where
         activities
             .iter()
             .take(ACTIVITY_MAX_LEN_DISPLAY)
-            .collect::<Vec<&Activity>>()
+            .collect::<Vec<&DaysRemaining>>()
     } else {
-        activities.iter().collect::<Vec<&Activity>>()
+        activities.iter().collect::<Vec<&DaysRemaining>>()
     };
 
     let title_font = FontRenderer::new::<font::inter_bold_32_32>();
@@ -79,7 +79,11 @@ where
         let days_remaining_text = if activity.days_remaining == 0 {
             "Today"
         } else {
-            &format!("{} days", &activity.days_remaining)
+            if activity.days_remaining == 1 {
+                "1 day"
+            } else {
+                &format!("{} days", &activity.days_remaining)
+            }
         };
 
         // Create the text object for the days remaining

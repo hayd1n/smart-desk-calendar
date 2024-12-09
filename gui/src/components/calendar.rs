@@ -1,13 +1,10 @@
 use chrono::{Datelike, NaiveDate};
-use embedded_graphics::Drawable;
-use embedded_graphics::{
-    prelude::{DrawTarget, Point, Primitive},
-    primitives::{Circle, PrimitiveStyleBuilder},
-};
+use embedded_graphics::prelude::DrawTarget;
 use epd_waveshare::color::Color;
 use std::fmt::Debug;
 use u8g2_fonts::FontRenderer;
 
+use crate::circle::Circle;
 use crate::{draw::DrawError, font, text::Text, Black, White, GRAY_LUMA};
 
 const WEEKDAYS: [&str; 7] = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -28,6 +25,7 @@ pub fn draw_calendar<Display>(
     x: i32,
     y: i32,
     date: NaiveDate,
+    events_date: &Vec<NaiveDate>,
 ) -> Result<(), DrawError>
 where
     Display: DrawTarget<Color = Color>,
@@ -135,25 +133,19 @@ where
                 .horizontal_align(u8g2_fonts::types::HorizontalAlignment::Center);
 
             if day == date {
-                let diameter = 34;
-                let radius = diameter / 2;
-
-                let style = PrimitiveStyleBuilder::new().fill_color(Black).build();
-
-                Circle::new(
-                    Point::new(
-                        day_x - TryInto::<i32>::try_into(radius).unwrap(),
-                        day_y - TryInto::<i32>::try_into(radius).unwrap(),
-                    ),
-                    diameter,
-                )
-                .into_styled(style)
-                .draw(display)
-                .map_err(|err| DrawError::DrawFailed(format!("{:?}", err)))?;
-
+                Circle::new(day_x, day_y, 34).draw(display, Black)?;
                 text.draw(display, White)?;
             } else {
                 text.draw_gray(display, GRAY_LUMA)?;
+            }
+
+            if events_date.contains(&day) {
+                let circle = Circle::new(day_x, day_y + 11, 5);
+                if day == date {
+                    circle.draw(display, White)?;
+                } else {
+                    circle.draw_gray(display, GRAY_LUMA)?;
+                }
             }
 
             // Move to next date
