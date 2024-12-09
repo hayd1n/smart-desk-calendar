@@ -1,0 +1,90 @@
+BEGIN:VCALENDAR
+METHOD:PUBLISH
+PRODID:-//Moodle Pty Ltd//NONSGML Moodle Version 2023100906.04//EN
+VERSION:2.0
+BEGIN:VEVENT
+UID:1729789@moodle2.ntust.edu.tw
+SUMMARY:Programming assignment 2 (Scheme &amp\; Prolog)作業繳交截止
+DESCRIPTION:請將所有檔案壓縮成一個壓縮檔(.7z或.zip)，檔名: 學號，e.g. B11115888\n\n
+CLASS:PUBLIC
+LAST-MODIFIED:20241202T081710Z
+DTSTAMP:20241209T171244Z
+DTSTART:20241212T155900Z
+DTEND:20241212T155900Z
+CATEGORIES:[TaiwanTech] 程式語言 Programming Languages (1131CS4001301)
+END:VEVENT
+BEGIN:VEVENT
+UID:1596238@moodle2.ntust.edu.tw
+SUMMARY:Final Project作業繳交截止
+DESCRIPTION:
+CLASS:PUBLIC
+LAST-MODIFIED:20241202T040025Z
+DTSTAMP:20241209T171244Z
+DTSTART:20241216T042000Z
+DTEND:20241216T042000Z
+CATEGORIES:[TaiwanTech] 惡意威脅分析及安全人工智慧 Cybersecurity Threat Analysis and Sec
+	ure AI (1131CS5169701)
+	
+END:VEVENT
+BEGIN:VEVENT
+UID:1770374@moodle2.ntust.edu.tw
+SUMMARY:Final Project作業繳交截止
+DESCRIPTION:
+CLASS:PUBLIC
+LAST-MODIFIED:20241204T163055Z
+DTSTAMP:20241209T171244Z
+DTSTART:20241219T090000Z
+DTEND:20241219T090000Z
+CATEGORIES:[TaiwanTech] 軟體工程 Software Engineering (1131CS3025301)
+END:VEVENT
+BEGIN:VEVENT
+UID:1727564@moodle2.ntust.edu.tw
+SUMMARY:Homework 5作業繳交截止
+DESCRIPTION:
+CLASS:PUBLIC
+LAST-MODIFIED:20241203T153530Z
+DTSTAMP:20241209T171244Z
+DTSTART:20241222T155500Z
+DTEND:20241222T155500Z
+CATEGORIES:[TaiwanTech] 作業系統 Operating Systems (1131CS3009301)
+END:VEVENT
+BEGIN:VEVENT
+UID:1715020@moodle2.ntust.edu.tw
+SUMMARY:Introduction to Data Science HW2作業繳交截止
+DESCRIPTION:【KAGGLE】\n\nTeam Name 請使用"學號_姓名" (例如：B11015000_王小明)   \n\n截止日期為
+	： 12/22 23:59\n\nKAGGLE網址:  HTTPS://WWW.KAGGLE.COM/T/8C32BCF80AD04EAC81E438
+	810E589F6E [1]\n\n【評分方式】\n\n	* 程式performance 50%(依照資料比例整合 Public Leaderboar
+	d 及 Private Leaderboard) :\n\nPublic Leaderboard分數超過baseline approach就至少有基本
+	分(70分)，而Kaggle排名第一的人分數為100分，其他人有超過Baseline的依照在Kaggle上的Score值與第一名的Score值差距按比
+	例介於70到100之間\n\nPrivate Leaderboard分數計分方式同Public Leaderboard\n\n	* 書面報告 50% 
+	:   \n\n壓縮檔名格式: "學號_姓名" (eg. B11215000_王小明.zip)\n\n壓縮檔需包含以下內容：\n\nA. 說明如何執行
+	程式(並附上程式碼檔案) \n\nB. 簡介你所使用的程式架構及演算法流程(如果有進行資料前處理也請說明做法及目的)\n\nC. 書面報告須以PDF格
+	式繳交，並依照 "學號_姓名" (EG. B11215000_王小明.PDF) 格式命名，否則將斟酌扣分\n\n請同學除了去KAGGLE上傳答案也記得
+	去作業區繳交書面報告\n\n\n\nLinks:\n------\n[1] https://www.kaggle.com/t/8c32bcf80ad0
+	4eac81e438810e589f6e\n
+	
+CLASS:PUBLIC
+LAST-MODIFIED:20241207T060356Z
+DTSTAMP:20241209T171244Z
+DTSTART:20241222T155900Z
+DTEND:20241222T155900Z
+CATEGORIES:[TaiwanTech] 資料科學導論 Introduction to Data Science (1131CS3047701)
+END:VEVENT
+BEGIN:VEVENT
+UID:1716499@moodle2.ntust.edu.tw
+SUMMARY:Final project 書面報告作業繳交截止
+DESCRIPTION:請各組派一位代表，將下列檔案壓縮後上傳：\n1. 書面報告 (頁數及內容格式不限)。\n2. 競賽參加證明 (例如：報名成功的
+	email或系統截圖、主辦單位提供的參賽證明)，如有得獎或名次證明也歡迎附上 (例如：獎狀、排行榜截圖)。\n\n壓縮檔請命名為 GroupX (將 
+	X 改成自己的組別編號)，例如：Group8.zip。\n\np.s. 也請記得把成果介紹影片的網址填入此表單中\nhttps://docs.goog
+	le.com/spreadsheets/d/1KNPh_mb-1Dm9jJRR_0yJK6QcgXdKdcSO33vj7ZUGyaQ/ [1]\n\n
+	\n\nLinks:\n------\n[1] https://docs.google.com/spreadsheets/d/1KNPh_mb-1Dm
+	9jJRR_0yJK6QcgXdKdcSO33vj7ZUGyaQ/\n
+	
+CLASS:PUBLIC
+LAST-MODIFIED:20241201T144206Z
+DTSTAMP:20241209T171244Z
+DTSTART:20241223T155900Z
+DTEND:20241223T155900Z
+CATEGORIES:[TaiwanTech] 資料科學導論 Introduction to Data Science (1131CS3047701)
+END:VEVENT
+END:VCALENDAR

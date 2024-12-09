@@ -1,0 +1,9 @@
+[package]
+name = "ics-parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+chrono-tz = "0.10"
+iso8601 = { version = "0.6", features = ["chrono"] }

@@ -1,0 +1,11 @@
+/.vscode
+/.embuild
+/target
+/Cargo.lock
+
+# env file
+.env
+.env.*
+
+# macOS
+.DS_Store

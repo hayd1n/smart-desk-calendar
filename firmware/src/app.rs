@@ -1,12 +1,15 @@
 #![allow(dead_code)]
 
 use std::{
-    fmt::Debug,
-    str::from_utf8,
+    convert::Infallible,
+    error::Error,
+    fmt::{self, Debug},
+    str::{from_utf8, Utf8Error},
     sync::mpsc::{self, RecvTimeoutError},
     time::Duration,
 };
 
+use chrono::{Datelike, NaiveTime};
 use chrono_tz::Tz;
 use const_random::const_random;
 use embedded_graphics::{
@@ -15,26 +18,40 @@ use embedded_graphics::{
     text::Text,
     Drawable,
 };
+use embedded_svc::http::client::Client;
 use epd_waveshare::{color::Color, graphics::VarDisplay, prelude::WaveshareDisplay};
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
-    hal::reset,
+    hal::{reset, spi::SpiError},
     http::{
+        client::EspHttpConnection,
         server::{Configuration as HttpServerConfig, EspHttpServer},
         Method,
     },
     io::{EspIOError, Write},
     nvs::{EspDefaultNvsPartition, EspNvs, NvsDefault},
     sntp::{EspSntp, SyncStatus},
+    sys::EspError,
     wifi,
 };
-use gui::page::main_page::MainPage;
+use gui::{
+    draw::DrawError,
+    font,
+    page::main_page::{Event, MainPage},
+    text::Text as GuiText,
+};
 use serde::{Deserialize, Serialize};
+use u8g2_fonts::{
+    types::{HorizontalAlignment, VerticalPosition},
+    FontRenderer,
+};
 
 use crate::{
     board::Board,
+    calendar::IcsDownloader,
     common::{get_time, NVS_NAMESPACE},
     display::{create_display, Black},
+    http::create_https_client,
 };
 
 #[derive(Debug)]
@@ -79,10 +96,17 @@ pub struct AppSettings {
     pub timezone: Tz,
     // Misc
     pub refresh_interval: Duration,
+    // Calendar
+    pub calendar_url: Vec<String>, // Calendar URL max 8
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
+        let calendar_url = env!("ICS_URL")
+            .split(";")
+            .map(|s| String::from(s))
+            .collect();
+
         AppSettings {
             wifi_config: WifiConfig {
                 ssid: env!("WIFI_SSID").try_into().unwrap(),
@@ -91,6 +115,7 @@ impl Default for AppSettings {
             },
             timezone: chrono_tz::Asia::Taipei,
             refresh_interval: Duration::from_mins(5),
+            calendar_url,
         }
     }
 }
@@ -108,7 +133,7 @@ pub struct InitializeMode {
 }
 
 impl InitializeMode {
-    fn setup_wifi(&mut self) -> anyhow::Result<()> {
+    fn setup_wifi(&mut self) -> Result<(), AppError> {
         self.app
             .board
             .wifi
@@ -120,7 +145,7 @@ impl InitializeMode {
         Ok(())
     }
 
-    fn connect_wifi(&mut self) -> anyhow::Result<()> {
+    fn connect_wifi(&mut self) -> Result<(), AppError> {
         // Connect Wifi
         self.app.board.wifi.connect()?;
         // Wait until the network interface is up
@@ -128,7 +153,7 @@ impl InitializeMode {
         Ok(())
     }
 
-    fn initialize_wifi(&mut self) -> anyhow::Result<()> {
+    fn initialize_wifi(&mut self) -> Result<(), AppError> {
         // Setup Wifi
         self.setup_wifi()?;
         // Start Wifi
@@ -136,14 +161,14 @@ impl InitializeMode {
         Ok(())
     }
 
-    fn initialize(&mut self) -> anyhow::Result<()> {
+    fn initialize(&mut self) -> Result<(), AppError> {
         log::info!("InitializeMode::initialize");
         self.initialize_wifi()?;
 
         Ok(())
     }
 
-    fn run_internal(&mut self) -> anyhow::Result<()> {
+    fn run_internal(&mut self) -> Result<(), AppError> {
         // Initialize the app mode
         self.initialize()?;
 
@@ -186,7 +211,7 @@ impl InitializeMode {
         httpserver.fn_handler(
             "/wifi",
             Method::Post,
-            move |mut request| -> anyhow::Result<()> {
+            move |mut request| -> Result<(), AppError> {
                 let mut buffer = [0_u8; 256];
                 let bytes_read = request.read(&mut buffer)?;
                 let recv_str = from_utf8(&buffer[0..bytes_read])?;
@@ -290,10 +315,11 @@ impl AppMode for InitializeMode {
 
 pub struct NormalMode {
     app: App,
+    http_client: Client<EspHttpConnection>,
 }
 
 impl NormalMode {
-    fn initialize_wifi(&mut self) -> anyhow::Result<()> {
+    fn initialize_wifi(&mut self) -> Result<(), AppError> {
         self.app
             .board
             .wifi
@@ -318,22 +344,69 @@ impl NormalMode {
         Ok(())
     }
 
-    fn initialize(&mut self) -> anyhow::Result<()> {
+    fn initialize(&mut self) -> Result<(), AppError> {
         log::info!("NormalMode::initialize");
         self.initialize_wifi()?;
         self.app.sync_ntp()?;
         Ok(())
     }
 
-    fn run_internal(&mut self) -> anyhow::Result<()> {
+    fn run_internal(&mut self) -> Result<(), AppError> {
         // Initialize the app mode
         self.initialize()?;
 
         // Get the current time
-        let now_local = get_time()
-            .with_timezone(&self.app.settings.as_ref().unwrap().timezone)
-            .naive_local();
+        let timezone = self.app.settings.as_ref().unwrap().timezone;
+        let now = get_time();
+        let now_local = now.with_timezone(&timezone).naive_local();
         let weekday = format!("{}", now_local.format("%A"));
+
+        let today = now
+            .with_timezone(&timezone)
+            .with_time(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+            .unwrap()
+            .to_utc();
+        let month_start = today.with_day0(0).unwrap();
+        let next_30_days = today
+            .with_timezone(&timezone)
+            .with_time(NaiveTime::from_hms_opt(23, 59, 59).unwrap())
+            .unwrap()
+            .to_utc()
+            + chrono::Duration::days(30);
+
+        let (events, download_errors) = {
+            let mut events = Vec::new();
+            let mut errors = Vec::new();
+            for url in &self.app.settings.as_ref().unwrap().calendar_url {
+                println!("Downloading ICS from: {}", url);
+                // Create ICS Downloader
+                let mut ics_downloader = IcsDownloader::new(
+                    &mut self.http_client,
+                    &url,
+                    month_start.into(),
+                    next_30_days.into(),
+                );
+
+                match ics_downloader.download_and_parse_ics() {
+                    Ok(parsed_ics) => events.extend(parsed_ics),
+                    Err(e) => {
+                        eprintln!("Downloading ics from {} failed.", url);
+                        errors.push(e);
+                        continue;
+                    }
+                }
+            }
+            events.sort();
+            println!("Events: {:#?}", events);
+
+            // Create a list of activities
+            let events_gui = events
+                .iter()
+                .map(|event| Event::new(&event.summary.trim(), event.start.naive_local().date()))
+                .collect::<Vec<Event>>();
+
+            (events_gui, errors)
+        };
 
         // Create a new main page
         let mut main_page = MainPage::new(now_local);
@@ -341,8 +414,26 @@ impl NormalMode {
         // Set weekday
         main_page.set_weekday(weekday);
 
+        // Set activities
+        main_page.set_events(events);
+
         // Render the main page
         main_page.draw(&mut self.app.display)?;
+
+        // Display download errors
+        if download_errors.len() > 0 {
+            let display = &mut self.app.display;
+            let font = FontRenderer::new::<font::inter_bold_16_16>();
+            GuiText::new(
+                &format!("Failed to download {} ics calendars", download_errors.len()),
+                &font,
+            )
+            .x(gui::WIDTH as i32)
+            .y(gui::HEIGHT as i32)
+            .horizontal_align(HorizontalAlignment::Right)
+            .vertical_pos(VerticalPosition::Bottom)
+            .draw(display, Black)?;
+        }
 
         // Update and display the frame
         self.app.update_and_display()?;
@@ -357,7 +448,10 @@ impl NormalMode {
 
 impl AppMode for NormalMode {
     fn new(app: App) -> Self {
-        Self { app }
+        Self {
+            app,
+            http_client: create_https_client().unwrap(),
+        }
     }
 
     fn run(&mut self) {
@@ -368,6 +462,73 @@ impl AppMode for NormalMode {
 
     fn retrieve(self) -> App {
         self.app
+    }
+}
+
+#[derive(Debug)]
+pub enum AppError {
+    WifiError(String),
+    NetworkError(String),
+    UnexpectedError(String),
+}
+
+impl Error for AppError {}
+
+impl fmt::Display for AppError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AppError::WifiError(msg) => write!(f, "WifiError: {}", msg),
+            AppError::NetworkError(msg) => write!(f, "NetworkError: {}", msg),
+            AppError::UnexpectedError(msg) => write!(f, "UnexpectedError: {}", msg),
+        }
+    }
+}
+
+impl From<EspError> for AppError {
+    fn from(error: EspError) -> Self {
+        AppError::UnexpectedError(error.to_string())
+    }
+}
+
+impl From<EspIOError> for AppError {
+    fn from(error: EspIOError) -> Self {
+        AppError::UnexpectedError(error.to_string())
+    }
+}
+
+impl From<SpiError> for AppError {
+    fn from(error: SpiError) -> Self {
+        AppError::UnexpectedError(error.to_string())
+    }
+}
+
+impl From<DrawError> for AppError {
+    fn from(error: DrawError) -> Self {
+        AppError::UnexpectedError(error.to_string())
+    }
+}
+
+impl From<Infallible> for AppError {
+    fn from(error: Infallible) -> Self {
+        AppError::UnexpectedError(error.to_string())
+    }
+}
+
+impl From<Utf8Error> for AppError {
+    fn from(error: Utf8Error) -> Self {
+        AppError::UnexpectedError(error.to_string())
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(error: serde_json::Error) -> Self {
+        AppError::UnexpectedError(error.to_string())
+    }
+}
+
+impl From<anyhow::Error> for AppError {
+    fn from(error: anyhow::Error) -> Self {
+        AppError::UnexpectedError(error.to_string())
     }
 }
 
@@ -406,33 +567,36 @@ impl App {
         }
     }
 
-    fn load_settings(&mut self) -> anyhow::Result<()> {
+    fn load_settings(&mut self) -> Result<(), AppError> {
         let mut buf = [0u8; 1024];
         let str = self.nvs_storage.get_str("settings", &mut buf)?;
         self.settings = match str {
-            Some(str) => {
-                let settings: AppSettings = serde_json::from_str(str)?;
-                Some(settings)
-            }
+            Some(str) => match serde_json::from_str(str) {
+                Ok(settings) => Some(settings),
+                Err(e) => {
+                    log::warn!("Failed to parse settings: {:?}", e);
+                    None
+                }
+            },
             None => None,
         };
 
         Ok(())
     }
 
-    fn save_settings(&mut self) -> anyhow::Result<()> {
+    fn save_settings(&mut self) -> Result<(), AppError> {
         let buf = serde_json::to_string(&self.settings)?;
         self.nvs_storage.set_str("settings", &buf)?;
 
         Ok(())
     }
 
-    fn clear_settings(&mut self) -> anyhow::Result<()> {
+    fn clear_settings(&mut self) -> Result<(), AppError> {
         self.nvs_storage.remove("settings")?;
         Ok(())
     }
 
-    fn initialize(&mut self) -> anyhow::Result<()> {
+    fn initialize(&mut self) -> Result<(), AppError> {
         log::info!("initialize");
 
         // Turn on the LED
@@ -444,18 +608,19 @@ impl App {
             _ => log::info!("Wakeup: {:?}", wakeup_reason),
         }
 
+        // Force initialize if the firmware environment variable is set
+        if env!("FORCE_INITIALIZE") == "true" {
+            log::info!("Force initialize");
+            self.clear_settings()?;
+            self.mode = Mode::Initialize;
+            return Ok(());
+        }
+
         // Load settings from NVS
         self.load_settings()?;
 
         // Set mode to Initialize if settings are not available
         if self.settings.is_none() {
-            self.mode = Mode::Initialize;
-        }
-
-        // Force initialize if the firmware environment variable is set
-        if env!("FORCE_INITIALIZE") == "true" {
-            log::info!("Force initialize");
-            self.clear_settings()?;
             self.mode = Mode::Initialize;
         }
 
@@ -465,7 +630,7 @@ impl App {
     }
 
     #[allow(unreachable_code)]
-    fn sleep(&mut self, sleep_time: Duration) -> anyhow::Result<()> {
+    fn sleep(&mut self, sleep_time: Duration) -> Result<(), AppError> {
         // Turn off the LED
         self.board.led.set_low()?;
 
@@ -479,7 +644,7 @@ impl App {
         Ok(())
     }
 
-    fn update_and_display(&mut self) -> anyhow::Result<()> {
+    fn update_and_display(&mut self) -> Result<(), AppError> {
         self.board.epd.update_and_display_frame(
             &mut self.board.spi,
             self.display.buffer(),
@@ -490,7 +655,7 @@ impl App {
         Ok(())
     }
 
-    fn sync_ntp(&mut self) -> anyhow::Result<()> {
+    fn sync_ntp(&mut self) -> Result<(), AppError> {
         log::info!("Synchronizing with NTP Server");
         let ntp = EspSntp::new_default()?;
         // Wait until the time is synchronized
@@ -504,7 +669,7 @@ impl App {
     }
 
     // Show error message on the screen
-    fn handle_error(&mut self, e: anyhow::Error) {
+    fn handle_error(&mut self, e: AppError) {
         log::error!("Unexpected error: {:?}", e);
 
         // Create a new character style
