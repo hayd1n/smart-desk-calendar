@@ -16,6 +16,11 @@ name = "clear-nvs"
 path = "src/clear_nvs.rs"
 harness = false           # do not use the built in cargo test harness -> resolve rust-analyzer errors
 
+[[bin]]
+name = "sleep"
+path = "src/sleep.rs"
+harness = false       # do not use the built in cargo test harness -> resolve rust-analyzer errors
+
 [profile.release]
 opt-level = "s"
 
